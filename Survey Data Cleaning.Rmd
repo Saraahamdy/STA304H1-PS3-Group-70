@@ -1,0 +1,102 @@
+---
+title: "Survey Data Cleaning"
+author: "Colin Conant"
+date: "28/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(haven)
+library(tidyverse)
+library(dplyr)
+library(plyr)
+
+# Initial grabbing and cleaning of the data
+setwd("C:/Users/colin/OneDrive/Documents/School/Sta304/PS3")
+raw_survey_data <- read_dta("Nationscape-DataRelease_WeeklyMaterials_DTA_200910_161918/Nationscape-DataRelease_WeeklyMaterials_DTA/phase_2_v20200814/ns20200625/ns20200625.dta")
+
+raw_survey_data<- labelled::to_factor(raw_survey_data)
+tibble(raw_survey_data)
+
+#Selecting variables from the survey data to use in the analysis
+reduced_survey_data <- 
+  raw_survey_data %>% 
+  select(age,gender, race_ethnicity, household_income,education,employment,vote_intention,vote_2020,state)
+
+
+#Filtering out ineligible voters
+reduced_survey_data<-
+  reduced_survey_data %>%
+  filter(vote_intention == "Yes, I will vote" | vote_intention == "Not sure")
+
+#Creating two new variables to indicate if a person was voting for Trump or not, and if they were voting for Biden or not
+reduced_survey_data<-
+  reduced_survey_data %>%
+  mutate(vote_trump = 
+           ifelse(vote_2020=="Donald Trump", 1, 0)) %>%
+  mutate(vote_biden = 
+           ifelse(vote_2020=="Joe Biden", 1, 0))
+
+#Recategorizing the race groups
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Asian (Chinese)" = "Asian/Pacific Islander"))
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Asian (Japanese)" = "Asian/Pacific Islander"))
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Asian (Asian Indian)" = "Asian/Pacific Islander"))   
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Asian (Filipino)" = "Asian/Pacific Islander"))  
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Asian (Korean)" = "Asian/Pacific Islander"))  
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Asian (Vietnamese)" = "Asian/Pacific Islander"))
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Asian (Other)" = "Asian/Pacific Islander"))
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Pacific Islander (Native Hawaiian)" = "Asian/Pacific Islander"))  
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Pacific Islander (Guamanian)" = "Asian/Pacific Islander"))
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Pacific Islander (Samoan)" = "Asian/Pacific Islander"))  
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("Pacific Islander (Other)" = "Asian/Pacific Islander"))  
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("American Indian or Alaska Native" = "Some other race")) 
+reduced_survey_data$race_ethnicity <- revalue(reduced_survey_data$race_ethnicity, c("White" = "AA_White")) 
+
+# Writing this data to a CSV file
+write_csv(reduced_survey_data, "outputs/survey_data.csv")
+
+# Loading in the cleaned survey Data
+survey_data <- read_csv("C:/Users/colin/OneDrive/Documents/School/Sta304/PS3/outputs/survey_data.csv")
+tibble(survey_data)
+
+
+#Creating a logistic mdoel for Trump
+Trumpmodel <- glm(vote_trump ~ age + as.factor(gender)+ as.factor(race_ethnicity),
+            data=survey_data, family= "binomial")
+summary(Trumpmodel)
+
+
+#Creating a logistic model for Biden 
+Bidenmodel <- glm(vote_biden ~ age + as.factor(gender)+ as.factor(race_ethnicity),
+            data=survey_data, family= "binomial")
+summary(Bidenmodel)
+
+```
+
+
+
+
+```{r}
+# Loading in the cleaned census Data from output folder
+census_data <- read_csv("outputs/census_data.csv")
+
+names(census_data)[1]<-"gender"
+names(census_data)[3]<-"race_ethnicity"
+census_data$race_ethnicity <- revalue(census_data$race_ethnicity, c("American Indian or Alaska Native" = "Some other race")) 
+census_data$race_ethnicity <- revalue(census_data$race_ethnicity, c("White" = "AA_White")) 
+census_data
+
+census_data <- 
+  census_data %>%
+  filter(age >17) %>%
+  group_by(age)%>%
+  count()
+
+census_data
+```
+
+
